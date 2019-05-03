@@ -1,1 +1,12 @@
 Projet Caml
+
+
+
+Exemple sur l’alphabet ? = [a, b, c], rechercher si la chaîne contient « abb ».
+
+?*(abb)
+
+Déterministe Non complet :
+
+ 
+
