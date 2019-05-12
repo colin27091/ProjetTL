@@ -1,4 +1,57 @@
-(* Projet Caml *)
+(* Projet Caml Automates déterministes*)
+
+
+
+(*****************************************************************************)
+(*				Bibliothèque sur les chaînes de caractères 					 *)
+
+(* Fonctions usuelles sur les chaînes de caractères *)
+let string_of_char = String.make 1 ;;
+
+let tetec = function
+| "" -> failwith "Erreur : chaine vide"
+| s -> s.[0] ;;
+(*val tetec : string -> char = <fun>*)
+
+let tetes = fun s -> string_of_char (tetec(s));;
+
+let reste = function 
+| "" -> failwith "Erreur : chaine vide"
+| s -> String.sub s 1  ((String.length s) - 1 ) ;;
+(*val reste : string -> string = <fun>*)
+
+
+(**********************************************************************************)	
+		
+	
+(**********************************************************************************)	
+(*                      Bibliothèque sur les listes                             *)  
+
+let rec appartient = function 
+(a,b::l)-> if a=b then true else appartient(a,l)
+|(_,[])-> false;;
+(*appartient : 'a * 'a list -> bool = <fun>*)
+
+let rec union l = function 
+(a::l2)-> if appartient(a,l) then union l l2 else a:: (union l l2)
+| []->l;;
+(*union : 'a list -> 'a list -> 'a list = <fun>*)
+
+let rec enleve a = function
+ x::q -> if x = a then q else x::(enleve a q)
+ | [] -> [] ;;
+ (* val enleve : 'a -> 'a list -> 'a list = <fun> *)
+
+let rec intersection l1 = function
+	| [] -> []
+	| a :: l2 -> if appartient(a,l1) then a::(intersection (enleve a l1) l2) else intersection l1 l2 ;;
+(* val intersection : 'a list -> 'a list -> 'a list = <fun> *)
+	
+let rec long = function
+(_::l)->1+long(l)
+|[]-> 0;;
+(* val long : 'a list -> int = <fun>*)
+(**********************************************************************************)
 
 (* Automates déterministes *)
 
@@ -6,7 +59,7 @@ type etat = {accept : bool ; t : char -> int} ;;
 (* type etat = { accept : bool; t : char -> int; } *)
 
 
-type afd = {mutable sigma : char list ;mutable nQ : int ;mutable init : int ;mutable e : int -> etat} ;;
+type afd = {sigma : char list ;nQ : int ;init : int ;e : int -> etat} ;;
 (* type afd = { sigma : char list; nQ : int; init : int; e : int -> etat; } *)
 
 let a1 = {sigma= ['a';'b'] ; nQ = 3; init = 1 ; 
@@ -62,22 +115,23 @@ let rec lire (a : afd) (i :int) (str : string) = match str with
 |str -> (a.e i).accept || lire a (transit a i (tetec(str))) (reste(str));;
 (* val lire : afd -> int -> string -> bool = <fun> *)
 
-let automate (a : afd) (str : string) = lire a a.init str;;
-(* val automate : afd -> string -> bool = <fun> *)
+let accept (a : afd) (str : string) = lire a a.init str;;
+(* val lecture : afd -> string -> bool = <fun> *)
 
 
 (* Creation automate (depart w) *)
 
 
-let t_empty = function ' ' -> failwith "Erreur dans le texte";;
+let t_empty = function _ -> failwith "Erreur dans le texte";;
 (* val t_empty : char -> 'a = <fun> *)
 
-let e_empty = function 0 -> {accept = false;
-	t = t_empty};;
+let e_empty = function _ -> failwith "Etat inconnu";;
 (* val e_empty : int -> etat = <fun> *)
 
 let chooseEtat (car : char) (w : string) (etat : int) = match car with
-c when (c = w.[0]) -> 2
+c when (c = w.[0]) -> if c != w.[etat-1] 
+						then 2
+						else etat + 1
 |c -> if c = w.[etat-1]
 	then etat + 1
 	else 1;;
@@ -115,136 +169,43 @@ let rec e_automate (e_function : int -> etat)(alphabet : char list)(w : string)(
 let create_automate (alphabet : char list) (w: string) = {sigma = alphabet; nQ = (String.length w)+1; init = 1;
 		e = e_automate (e_empty) (alphabet) (w) (String.length w)};;
 (* val create_automate : char list -> string -> afd = <fun> *)
-		
-		
-		
-		
 
 
 
+(* TEST *)
+
+(* Données ADN  *)
+let nomFic = "C:/Users/c/Documents/L3Info/TheorieLang/ProjetTL/adn.txt";; (* 500 000 caractères *)
+
+(* Extraction donnée *)
+let str = input_line (open_in nomFic);;
+(*fin extraction*)
+
+let alph = ['A';'C';'G';'T'];;
+
+let chaine = ["TGTACACATATTGACCAAATCAGGGTAATT";(*fin de str*)
+				"CCTGGACAACCTCAAGGGCACCTTTGCCACA";(*millieu str*)
+				"CCTGGACAACCTCAAGGGCACCTTTGCCACB";(*caractères inconnu*)
+				"CCTGGACAACCTCAACCTGGACAACCTCAA";(*repetition*)
+				"";(*w null*)
+				"AACCTCAA";(*debut même lettre*)
+				"CAACTCCTAAGCCAGTGCCA";(*debut de str*)
+				"TGTACACATATTGACCAAATCAGGGTAATTAAA"];; (*non présent*)
+
+;; (*dernière chaine du document*)
+
+let test (str : string) (alph : char list) (w : string) =
+	let start = Sys.time() in
+		let acc = accept (create_automate alph w) str in
+			let finish = Sys.time() in
+				(w, acc, finish -. start);;
+(* val test : string -> char list -> string -> bool * float = <fun> *)
+
+let rec test_tab (str : string) (alph : char list) (w : string list) = match w with
+[] -> []
+|(a::l) -> (test str alph a) :: test_tab str alph l;;
+(* val test_tab : string -> char list -> string list -> (bool * float) list = <fun> *)
+
+(* test_tab str alph chaine;; *)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-(* Automates non déterministe *)
-
-(* Représentation des automates non-déterministes *)
-type etatN = {acceptN : bool ; tN : char -> int list};;
-(* type etatN = { acceptN : bool; tN : char -> int list; } *)
-		
-type afn = {sigmaN: char list; (* l'alphabet *)
-			nN: int; (* Q est l'ensemble {1..N} *)
-			initN: int list; (* les états initiaux *)
-			eN : int -> etatN};;
-
-let an1  = {sigmaN= ['a';'b'] ; nN = 6; initN = [1] ; 
-			eN = function	
-			    1 -> {acceptN = false ;
-				      tN = function 
-					       'a'->[3]}
-				|2 -> {acceptN = true ;
-				      tN = function 
-					       'a'->[2] 
-						   |'b'-> [1] }		   
-				|3 -> {acceptN = true ;
-				      tN = function 
-					       'a'->[4]
-						   |'b'->[5]   }	
-				|4 -> {acceptN = true ;
-					   tN = function
-							'a' -> [3]}
-				|5 -> {acceptN = false ;
-						tN = function 
-							'a' -> [5]
-							|'b' -> [6]}
-				|6 -> {acceptN = false ;
-						tN = function 
-							'a' -> [5]
-							|'b' -> [6]}
-		};;
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-	
-
-(*****************************************************************************)
-(*				Bibliothèque sur les chaînes de caractères 					 *)
-
-(* Fonctions usuelles sur les chaînes de caractères *)
-let string_of_char = String.make 1 ;;
-
-let tetec = function
-| "" -> failwith "Erreur : chaine vide"
-| s -> s.[0] ;;
-(*val tetec : string -> char = <fun>*)
-
-let tetes = fun s -> string_of_char (tetec(s));;
-
-let reste = function 
-| "" -> failwith "Erreur : chaine vide"
-| s -> String.sub s 1  ((String.length s) - 1 ) ;;
-(*val reste : string -> string = <fun>*)
-
-
-(**********************************************************************************)	
-		
-	
-(**********************************************************************************)	
-(*                      Bibliothèque sur les listes                             *)  
-
-let rec appartient = function 
-(a,b::l)-> if a=b then true else appartient(a,l)
-|(_,[])-> false;;
-(*appartient : 'a * 'a list -> bool = <fun>*)
-
-let rec union l = function 
-(a::l2)-> if appartient(a,l) then union l l2 else a:: (union l l2)
-| []->l;;
-(*union : 'a list -> 'a list -> 'a list = <fun>*)
-
-let rec enleve a = function
- x::q -> if x = a then q else x::(enleve a q)
- | [] -> [] ;;
- (* val enleve : 'a -> 'a list -> 'a list = <fun> *)
-
-let rec intersection l1 = function
-	| [] -> []
-	| a :: l2 -> if appartient(a,l1) then a::(intersection (enleve a l1) l2) else intersection l1 l2 ;;
-(* val intersection : 'a list -> 'a list -> 'a list = <fun> *)
-	
-let rec long = function
-(_::l)->1+long(l)
-|[]-> 0;;
-(* val long : 'a list -> int = <fun>	
-(**********************************************************************************)
